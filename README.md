@@ -1,6 +1,6 @@
 # Ark Transaction Builders
 
-[![CI](https://github.com/utexo/ark-tx-builders/workflows/CI/badge.svg)](https://github.com/utexo/ark-tx-builders/actions)
+[![CI](https://github.com/SashaZezulinsky/ark-tx-builder/workflows/CI/badge.svg)](https://github.com/SashaZezulinsky/ark-tx-builder/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/utexo/ark-tx-builders)](https://goreportcard.com/report/github.com/utexo/ark-tx-builders)
 [![Coverage](https://img.shields.io/badge/coverage-80.9%25-brightgreen)](https://codecov.io/gh/utexo/ark-tx-builders)
 [![Go Version](https://img.shields.io/badge/go-1.22-blue.svg)](https://golang.org/dl/)
