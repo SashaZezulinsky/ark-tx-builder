@@ -1,6 +1,7 @@
 package arkbuilders
 
 import (
+	"bytes"
 	"errors"
 	"sort"
 
@@ -23,6 +24,12 @@ func (tb *TxBuilder) BuildBoardingTx(params *BoardingTxParams) (*wire.MsgTx, err
 	}
 	if params.Amount <= 0 {
 		return nil, errors.New("amount must be positive")
+	}
+	if params.FundingUTXO.Amount <= 0 {
+		return nil, errors.New("funding UTXO amount must be positive")
+	}
+	if params.Amount < DustLimit {
+		return nil, errors.New("amount below dust limit")
 	}
 	if params.FeeRate < MinFeeRate {
 		params.FeeRate = MinFeeRate
@@ -132,21 +139,9 @@ func estimateTxSize(tx *wire.MsgTx, numInputs, witnessSize int) int64 {
 func sortScripts(scripts [][]byte) [][]byte {
 	sorted := make([][]byte, len(scripts))
 	copy(sorted, scripts)
-
 	sort.Slice(sorted, func(i, j int) bool {
-		// First compare by length
-		if len(sorted[i]) != len(sorted[j]) {
-			return len(sorted[i]) < len(sorted[j])
-		}
-		// Then compare lexicographically
-		for k := 0; k < len(sorted[i]); k++ {
-			if sorted[i][k] != sorted[j][k] {
-				return sorted[i][k] < sorted[j][k]
-			}
-		}
-		return false
+		return bytes.Compare(sorted[i], sorted[j]) < 0
 	})
-
 	return sorted
 }
 
@@ -154,27 +149,9 @@ func sortScripts(scripts [][]byte) [][]byte {
 // Based on BIP-69: amount ascending, then script ascending
 func sortTxOutputs(tx *wire.MsgTx) {
 	sort.Slice(tx.TxOut, func(i, j int) bool {
-		// First compare by amount
 		if tx.TxOut[i].Value != tx.TxOut[j].Value {
 			return tx.TxOut[i].Value < tx.TxOut[j].Value
 		}
-
-		// Then compare by script
-		iScript := tx.TxOut[i].PkScript
-		jScript := tx.TxOut[j].PkScript
-
-		// Compare length
-		if len(iScript) != len(jScript) {
-			return len(iScript) < len(jScript)
-		}
-
-		// Compare lexicographically
-		for k := 0; k < len(iScript); k++ {
-			if iScript[k] != jScript[k] {
-				return iScript[k] < jScript[k]
-			}
-		}
-
-		return false
+		return bytes.Compare(tx.TxOut[i].PkScript, tx.TxOut[j].PkScript) < 0
 	})
 }

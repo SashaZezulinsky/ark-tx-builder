@@ -24,6 +24,20 @@ func (tb *TxBuilder) BuildCommitmentTx(params *CommitmentTxParams) (*wire.MsgTx,
 	if params.BatchAmount <= 0 {
 		return nil, errors.New("batch amount must be positive")
 	}
+	if params.BatchAmount < DustLimit {
+		return nil, errors.New("batch amount below dust limit")
+	}
+	// Validate all UTXOs have positive amounts
+	for i, utxo := range params.OperatorUTXOs {
+		if utxo.Amount <= 0 {
+			return nil, errors.New("operator UTXO amount must be positive at index " + string(rune(i)))
+		}
+	}
+	for i, utxo := range params.BoardingOutputs {
+		if utxo.Amount <= 0 {
+			return nil, errors.New("boarding output amount must be positive at index " + string(rune(i)))
+		}
+	}
 	// Use local variable to avoid mutating params
 	connectorAmount := params.ConnectorAmount
 	if connectorAmount < DustLimit {
@@ -141,15 +155,10 @@ func (tb *TxBuilder) BuildCommitmentTx(params *CommitmentTxParams) (*wire.MsgTx,
 // Sorts by txid (hash) first, then by output index
 func sortTxInputs(tx *wire.MsgTx) {
 	sort.Slice(tx.TxIn, func(i, j int) bool {
-		// Compare transaction hashes
-		cmp := bytes.Compare(
-			tx.TxIn[i].PreviousOutPoint.Hash[:],
-			tx.TxIn[j].PreviousOutPoint.Hash[:],
-		)
-		if cmp != 0 {
-			return cmp < 0
+		cmp := bytes.Compare(tx.TxIn[i].PreviousOutPoint.Hash[:], tx.TxIn[j].PreviousOutPoint.Hash[:])
+		if cmp == 0 {
+			return tx.TxIn[i].PreviousOutPoint.Index < tx.TxIn[j].PreviousOutPoint.Index
 		}
-		// If hashes are equal, compare output indices
-		return tx.TxIn[i].PreviousOutPoint.Index < tx.TxIn[j].PreviousOutPoint.Index
+		return cmp < 0
 	})
 }

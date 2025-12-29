@@ -23,6 +23,12 @@ func (tb *TxBuilder) BuildForfeitTx(params *ForfeitTxParams) (*wire.MsgTx, error
 	if params.OperatorPubKey == nil {
 		return nil, errors.New("operator public key is required")
 	}
+	if params.VTXO.Amount <= 0 {
+		return nil, errors.New("VTXO amount must be positive")
+	}
+	if params.ConnectorAnchor.Amount <= 0 {
+		return nil, errors.New("connector anchor amount must be positive")
+	}
 	if params.FeeRate < MinFeeRate {
 		params.FeeRate = MinFeeRate
 	}
