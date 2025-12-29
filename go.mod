@@ -1,6 +1,6 @@
 module github.com/SashaZezulinsky/ark-tx-builder
 
-go 1.21
+go 1.22.0
 
 require (
 	github.com/btcsuite/btcd v0.24.0

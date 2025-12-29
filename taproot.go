@@ -1,76 +1,31 @@
 package arkbuilders
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"errors"
-	"sort"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr/musig2"
 	"github.com/btcsuite/btcd/txscript"
 )
 
 // MuSig2AggregateKeys aggregates multiple public keys using MuSig2
-// Implements deterministic key aggregation with coefficients to prevent rogue key attacks
+// Uses btcd's BIP-327 compliant implementation to prevent rogue key attacks
 // Based on BIP-327: https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki
 func MuSig2AggregateKeys(pubKeys ...*btcec.PublicKey) (*btcec.PublicKey, error) {
 	if len(pubKeys) == 0 {
 		return nil, errors.New("at least one public key is required")
 	}
 
-	// Sort keys for deterministic ordering
-	sortedKeys := make([]*btcec.PublicKey, len(pubKeys))
-	copy(sortedKeys, pubKeys)
-	sort.Slice(sortedKeys, func(i, j int) bool {
-		return bytes.Compare(
-			schnorr.SerializePubKey(sortedKeys[i]),
-			schnorr.SerializePubKey(sortedKeys[j]),
-		) < 0
-	})
-
-	// Compute L = H(P1 || P2 || ... || Pn) for coefficient generation
-	var keyListBuf bytes.Buffer
-	for _, pk := range sortedKeys {
-		keyListBuf.Write(schnorr.SerializePubKey(pk))
-	}
-	keyListHash := sha256.Sum256(keyListBuf.Bytes())
-
-	// Initialize aggregate point
-	var aggPoint btcec.JacobianPoint
-	aggPoint.X.SetInt(0)
-	aggPoint.Y.SetInt(0)
-	aggPoint.Z.SetInt(0)
-
-	// Aggregate keys with coefficients: Q = Σ(ai * Pi)
-	for _, pk := range sortedKeys {
-		// Compute coefficient ai = H(L || Pi)
-		var coefBuf bytes.Buffer
-		coefBuf.Write(keyListHash[:])
-		coefBuf.Write(schnorr.SerializePubKey(pk))
-		coefHash := sha256.Sum256(coefBuf.Bytes())
-
-		// Convert coefficient to scalar
-		var coefScalar btcec.ModNScalar
-		coefScalar.SetByteSlice(coefHash[:])
-
-		// Convert public key to Jacobian
-		var pkPoint btcec.JacobianPoint
-		pk.AsJacobian(&pkPoint)
-
-		// Multiply: ai * Pi
-		var scaledPoint btcec.JacobianPoint
-		btcec.ScalarMultNonConst(&coefScalar, &pkPoint, &scaledPoint)
-
-		// Add to aggregate
-		btcec.AddNonConst(&aggPoint, &scaledPoint, &aggPoint)
+	// Use btcd's battle-tested MuSig2 implementation
+	// sort=true ensures deterministic key aggregation regardless of input order
+	aggKey, _, _, err := musig2.AggregateKeys(pubKeys, true)
+	if err != nil {
+		return nil, err
 	}
 
-	// Convert to affine coordinates
-	aggPoint.ToAffine()
-
-	// Create and return aggregate public key
-	return btcec.NewPublicKey(&aggPoint.X, &aggPoint.Y), nil
+	// Return the final aggregated key
+	return aggKey.FinalKey, nil
 }
 
 // CreateTaprootScript creates a Taproot output script with script paths
