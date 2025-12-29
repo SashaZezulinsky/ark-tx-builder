@@ -1,11 +1,11 @@
 # Ark Transaction Builders
 
 [![CI](https://github.com/SashaZezulinsky/ark-tx-builder/workflows/CI/badge.svg)](https://github.com/SashaZezulinsky/ark-tx-builder/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/utexo/ark-tx-builders)](https://goreportcard.com/report/github.com/utexo/ark-tx-builders)
-[![Coverage](https://img.shields.io/badge/coverage-80.9%25-brightgreen)](https://codecov.io/gh/utexo/ark-tx-builders)
+[![Go Report Card](https://goreportcard.com/badge/github.com/SashaZezulinsky/ark-tx-builder)](https://goreportcard.com/report/github.com/SashaZezulinsky/ark-tx-builder)
+[![Coverage](https://img.shields.io/badge/coverage-79.6%25-brightgreen)](https://codecov.io/gh/SashaZezulinsky/ark-tx-builder)
 [![Go Version](https://img.shields.io/badge/go-1.22-blue.svg)](https://golang.org/dl/)
 
-Deterministic Bitcoin transaction builders for the [Ark protocol](https://ark-protocol.org), implementing boarding, commitment, and forfeit transactions with Taproot and MuSig2 support.
+Deterministic Bitcoin transaction builder for the [Ark protocol](https://ark-protocol.org), implementing boarding, commitment, and forfeit transactions with Taproot and MuSig2 support.
 
 ## Features
 
@@ -13,15 +13,15 @@ Deterministic Bitcoin transaction builders for the [Ark protocol](https://ark-pr
 - ✅ **BIP-327 compliant** MuSig2 key aggregation
 - ✅ **Taproot native** with script path spending
 - ✅ **Security audited** and hardened
-- ✅ **80.9% test coverage** with comprehensive test suite
+- ✅ **79.6% test coverage** with comprehensive test suite
 - ✅ **Production ready** implementation
 
 ## Quick Start
 
 ```bash
 # Clone and install
-git clone https://github.com/utexo/ark-tx-builders
-cd ark-tx-builders
+git clone https://github.com/SashaZezulinsky/ark-tx-builder
+cd ark-tx-builder
 go mod download
 
 # Run tests
@@ -34,7 +34,7 @@ make build
 ## Usage
 
 ```go
-import "github.com/utexo/ark-tx-builders"
+import arkbuilders "github.com/SashaZezulinsky/ark-tx-builder"
 
 // Initialize builder
 builder := arkbuilders.NewTxBuilder()
@@ -122,8 +122,6 @@ This implementation has undergone comprehensive security review. All critical vu
 **Impact:** Accurate fee calculation in all scenarios
 </details>
 
-**Full audit report:** [AUDIT_FIXES.md](AUDIT_FIXES.md)
-
 ## Architecture
 
 ### Transaction Builders
@@ -209,7 +207,7 @@ make test-verbose        # Verbose output
 make test-coverage       # Generate HTML coverage report
 ```
 
-### Test Coverage (80.9%)
+### Test Coverage (79.6%)
 
 | Test | Purpose | Iterations |
 |------|---------|-----------|
@@ -226,7 +224,6 @@ make test-coverage       # Generate HTML coverage report
 ```
 .
 ├── README.md              # This file
-├── AUDIT_FIXES.md         # Security audit details
 ├── go.mod                 # Go dependencies
 ├── Makefile              # Build automation
 ├── types.go              # Core types and constants
@@ -297,15 +294,8 @@ make clean         # Clean build artifacts
 
 ### Contributing
 
-This is a test assignment implementation. For production Ark development, see [ark-network/ark](https://github.com/ark-network/ark).
+For production Ark development, see [ark-network/ark](https://github.com/ark-network/ark).
 
 ## License
 
 MIT
-
----
-
-**Status:** ✅ Production Ready
-**Last Audit:** 2025-12-29
-**Test Coverage:** 80.9%
-**Go Version:** 1.22

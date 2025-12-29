@@ -1,4 +1,4 @@
-module github.com/utexo/ark-tx-builders
+module github.com/SashaZezulinsky/ark-tx-builder
 
 go 1.21
 

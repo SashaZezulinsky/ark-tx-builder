@@ -9,7 +9,6 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
 )
 
 // MuSig2AggregateKeys aggregates multiple public keys using MuSig2
@@ -103,83 +102,21 @@ func CreateTaprootScript(internalPubKey *btcec.PublicKey, scripts [][]byte) ([]b
 		// No script paths, just use internal key
 		taprootKey = internalKey
 	} else {
-		// Create merkle root from scripts
-		merkleRoot := buildTapscriptMerkleRoot(scripts)
+		// Use btcd's built-in Taproot script tree assembly
+		leaves := make([]txscript.TapLeaf, len(scripts))
+		for i, script := range scripts {
+			leaves[i] = txscript.NewBaseTapLeaf(script)
+		}
+
+		scriptTree := txscript.AssembleTaprootScriptTree(leaves...)
+		merkleRoot := scriptTree.RootNode.TapHash()
 
 		// Tweak the internal key with the merkle root
-		taprootKey = txscript.ComputeTaprootOutputKey(internalKey, merkleRoot)
+		taprootKey = txscript.ComputeTaprootOutputKey(internalKey, merkleRoot[:])
 	}
 
-	// Create P2TR output script
-	return txscript.NewScriptBuilder().
-		AddOp(txscript.OP_1).
-		AddData(schnorr.SerializePubKey(taprootKey)).
-		Script()
-}
-
-// buildTapscriptMerkleRoot builds a merkle root from tapscripts
-func buildTapscriptMerkleRoot(scripts [][]byte) []byte {
-	if len(scripts) == 0 {
-		return nil
-	}
-
-	// Compute leaf hashes
-	leaves := make([][]byte, len(scripts))
-	for i, script := range scripts {
-		leaves[i] = tapLeafHash(script)
-	}
-
-	// Build merkle tree (simple binary tree)
-	for len(leaves) > 1 {
-		var nextLevel [][]byte
-		for i := 0; i < len(leaves); i += 2 {
-			if i+1 < len(leaves) {
-				nextLevel = append(nextLevel, tapBranchHash(leaves[i], leaves[i+1]))
-			} else {
-				nextLevel = append(nextLevel, leaves[i])
-			}
-		}
-		leaves = nextLevel
-	}
-
-	return leaves[0]
-}
-
-// tapLeafHash computes the leaf hash for a tapscript
-func tapLeafHash(script []byte) []byte {
-	// TapLeaf = TaggedHash("TapLeaf", version || compactSize(script) || script)
-	var buf bytes.Buffer
-	buf.WriteByte(byte(txscript.BaseLeafVersion)) // 0xc0
-	_ = wire.WriteVarBytes(&buf, 0, script)
-
-	return taggedHash("TapLeaf", buf.Bytes())
-}
-
-// tapBranchHash computes the branch hash for two child nodes
-func tapBranchHash(left, right []byte) []byte {
-	// TapBranch = TaggedHash("TapBranch", left || right)
-	// Nodes must be sorted
-	if bytes.Compare(left, right) > 0 {
-		left, right = right, left
-	}
-
-	var buf bytes.Buffer
-	buf.Write(left)
-	buf.Write(right)
-
-	return taggedHash("TapBranch", buf.Bytes())
-}
-
-// taggedHash computes a tagged hash as per BIP-340
-func taggedHash(tag string, data []byte) []byte {
-	tagHash := sha256.Sum256([]byte(tag))
-
-	h := sha256.New()
-	h.Write(tagHash[:])
-	h.Write(tagHash[:])
-	h.Write(data)
-
-	return h.Sum(nil)
+	// Create P2TR output script using btcd's helper
+	return txscript.PayToTaprootScript(taprootKey)
 }
 
 // BuildCheckSigScript creates a simple checksig script for a public key
