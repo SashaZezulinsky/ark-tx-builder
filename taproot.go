@@ -13,7 +13,8 @@ import (
 )
 
 // MuSig2AggregateKeys aggregates multiple public keys using MuSig2
-// This is a simplified implementation for deterministic key aggregation
+// Implements deterministic key aggregation with coefficients to prevent rogue key attacks
+// Based on BIP-327: https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki
 func MuSig2AggregateKeys(pubKeys ...*btcec.PublicKey) (*btcec.PublicKey, error) {
 	if len(pubKeys) == 0 {
 		return nil, errors.New("at least one public key is required")
@@ -29,28 +30,48 @@ func MuSig2AggregateKeys(pubKeys ...*btcec.PublicKey) (*btcec.PublicKey, error) 
 		) < 0
 	})
 
-	// Simple deterministic aggregation using point addition
-	// This is a simplified MuSig2-style aggregation for deterministic key generation
-	// In production, use proper MuSig2 with coefficients, but for our purposes
-	// (deterministic transaction building), simple aggregation is sufficient
+	// Compute L = H(P1 || P2 || ... || Pn) for coefficient generation
+	var keyListBuf bytes.Buffer
+	for _, pk := range sortedKeys {
+		keyListBuf.Write(schnorr.SerializePubKey(pk))
+	}
+	keyListHash := sha256.Sum256(keyListBuf.Bytes())
 
-	// Convert first key to Jacobian coordinates
-	var result btcec.JacobianPoint
-	sortedKeys[0].AsJacobian(&result)
+	// Initialize aggregate point
+	var aggPoint btcec.JacobianPoint
+	aggPoint.X.SetInt(0)
+	aggPoint.Y.SetInt(0)
+	aggPoint.Z.SetInt(0)
 
-	// Add remaining keys
-	for i := 1; i < len(sortedKeys); i++ {
-		var keyPoint btcec.JacobianPoint
-		sortedKeys[i].AsJacobian(&keyPoint)
-		btcec.AddNonConst(&result, &keyPoint, &result)
+	// Aggregate keys with coefficients: Q = Σ(ai * Pi)
+	for _, pk := range sortedKeys {
+		// Compute coefficient ai = H(L || Pi)
+		var coefBuf bytes.Buffer
+		coefBuf.Write(keyListHash[:])
+		coefBuf.Write(schnorr.SerializePubKey(pk))
+		coefHash := sha256.Sum256(coefBuf.Bytes())
+
+		// Convert coefficient to scalar
+		var coefScalar btcec.ModNScalar
+		coefScalar.SetByteSlice(coefHash[:])
+
+		// Convert public key to Jacobian
+		var pkPoint btcec.JacobianPoint
+		pk.AsJacobian(&pkPoint)
+
+		// Multiply: ai * Pi
+		var scaledPoint btcec.JacobianPoint
+		btcec.ScalarMultNonConst(&coefScalar, &pkPoint, &scaledPoint)
+
+		// Add to aggregate
+		btcec.AddNonConst(&aggPoint, &scaledPoint, &aggPoint)
 	}
 
-	// Convert back to affine coordinates
-	result.ToAffine()
+	// Convert to affine coordinates
+	aggPoint.ToAffine()
 
-	// Create aggregate public key
-	aggKey := btcec.NewPublicKey(&result.X, &result.Y)
-	return aggKey, nil
+	// Create and return aggregate public key
+	return btcec.NewPublicKey(&aggPoint.X, &aggPoint.Y), nil
 }
 
 // CreateTaprootScript creates a Taproot output script with script paths

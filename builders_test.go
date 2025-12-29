@@ -1,6 +1,7 @@
 package arkbuilders
 
 import (
+	"bytes"
 	"encoding/hex"
 	"testing"
 
@@ -294,6 +295,62 @@ func TestBoardingWithChange(t *testing.T) {
 
 	t.Logf("Change handling verified: no-change tx has %d outputs, with-change tx has %d outputs",
 		len(txNoChange.TxOut), len(txWithChange.TxOut))
+}
+
+// TestCommitmentInputOrdering verifies that commitment tx inputs are sorted deterministically
+func TestCommitmentInputOrdering(t *testing.T) {
+	builder := NewTxBuilder()
+
+	operatorPrivKey := createTestPrivKey(t, 0x02)
+
+	// Create UTXOs in different orders
+	utxo1 := createTestUTXO(100000, 0)
+	utxo2 := createTestUTXO(200000, 1)
+	utxo3 := createTestUTXO(150000, 0)
+
+	// Build with UTXOs in order 1, 2, 3
+	params1 := &CommitmentTxParams{
+		OperatorUTXOs:   []*UTXO{utxo1, utxo2, utxo3},
+		BatchAmount:     400000,
+		ConnectorAmount: 1000,
+		OperatorPubKey:  operatorPrivKey.PubKey(),
+		BatchExpiry:     800000,
+		FeeRate:         1,
+	}
+
+	tx1, err := builder.BuildCommitmentTx(params1)
+	require.NoError(t, err)
+
+	// Build with UTXOs in order 3, 1, 2 (different order)
+	params2 := &CommitmentTxParams{
+		OperatorUTXOs:   []*UTXO{utxo3, utxo1, utxo2},
+		BatchAmount:     400000,
+		ConnectorAmount: 1000,
+		OperatorPubKey:  operatorPrivKey.PubKey(),
+		BatchExpiry:     800000,
+		FeeRate:         1,
+	}
+
+	tx2, err := builder.BuildCommitmentTx(params2)
+	require.NoError(t, err)
+
+	// Both transactions should have identical txids despite input order
+	assert.Equal(t, tx1.TxHash().String(), tx2.TxHash().String(),
+		"Commitment tx should be deterministic regardless of input order")
+
+	// Verify inputs are sorted
+	for i := 0; i < len(tx1.TxIn)-1; i++ {
+		hash1 := tx1.TxIn[i].PreviousOutPoint.Hash[:]
+		hash2 := tx1.TxIn[i+1].PreviousOutPoint.Hash[:]
+		cmp := bytes.Compare(hash1, hash2)
+		assert.True(t, cmp <= 0, "Inputs should be sorted by hash")
+		if cmp == 0 {
+			assert.True(t, tx1.TxIn[i].PreviousOutPoint.Index <= tx1.TxIn[i+1].PreviousOutPoint.Index,
+				"Inputs with same hash should be sorted by index")
+		}
+	}
+
+	t.Logf("Input ordering verified: txid = %s", tx1.TxHash().String())
 }
 
 // TestTransactionBasicProperties verifies basic transaction properties

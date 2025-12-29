@@ -16,25 +16,25 @@ type UTXO struct {
 
 // BoardingTxParams contains parameters for building a boarding transaction
 type BoardingTxParams struct {
-	FundingUTXO     *UTXO
-	Amount          int64
-	UserPubKey      *btcec.PublicKey
-	OperatorPubKey  *btcec.PublicKey
-	TimeoutBlocks   uint16
-	ChangeAddress   string // Optional, for change output
-	FeeRate         int64  // satoshis per vbyte
+	FundingUTXO    *UTXO
+	Amount         int64
+	UserPubKey     *btcec.PublicKey
+	OperatorPubKey *btcec.PublicKey
+	TimeoutBlocks  uint16
+	ChangeAddress  string // Optional, for change output
+	FeeRate        int64  // satoshis per vbyte
 }
 
 // CommitmentTxParams contains parameters for building a commitment transaction
 type CommitmentTxParams struct {
-	OperatorUTXOs    []*UTXO
-	BoardingOutputs  []*UTXO
-	BatchAmount      int64
-	ConnectorAmount  int64 // Dust amount
-	OperatorPubKey   *btcec.PublicKey
-	UserPubKeys      []*btcec.PublicKey
-	BatchExpiry      uint32 // Absolute lock time
-	FeeRate          int64
+	OperatorUTXOs   []*UTXO
+	BoardingOutputs []*UTXO
+	BatchAmount     int64
+	ConnectorAmount int64 // Dust amount
+	OperatorPubKey  *btcec.PublicKey
+	UserPubKeys     []*btcec.PublicKey
+	BatchExpiry     uint32 // Absolute lock time
+	FeeRate         int64
 }
 
 // ForfeitTxParams contains parameters for building a forfeit transaction

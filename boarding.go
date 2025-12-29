@@ -93,11 +93,12 @@ func (tb *TxBuilder) BuildBoardingTx(params *BoardingTxParams) (*wire.MsgTx, err
 		fee = estimatedSize * params.FeeRate
 		change = params.FundingUTXO.Amount - params.Amount - fee
 
-		// Update change amount
+		// Update change amount or remove if below dust
 		if change > DustLimit {
 			tx.TxOut[1].Value = change
 		} else {
 			// Remove change output if it would be dust
+			// Fee is already accounted for in the input-output difference
 			tx.TxOut = tx.TxOut[:1]
 		}
 	}

@@ -1,7 +1,9 @@
 package arkbuilders
 
 import (
+	"bytes"
 	"errors"
+	"sort"
 
 	"github.com/btcsuite/btcd/wire"
 )
@@ -22,8 +24,10 @@ func (tb *TxBuilder) BuildCommitmentTx(params *CommitmentTxParams) (*wire.MsgTx,
 	if params.BatchAmount <= 0 {
 		return nil, errors.New("batch amount must be positive")
 	}
-	if params.ConnectorAmount < DustLimit {
-		params.ConnectorAmount = DustLimit
+	// Use local variable to avoid mutating params
+	connectorAmount := params.ConnectorAmount
+	if connectorAmount < DustLimit {
+		connectorAmount = DustLimit
 	}
 	if params.FeeRate < MinFeeRate {
 		params.FeeRate = MinFeeRate
@@ -53,6 +57,9 @@ func (tb *TxBuilder) BuildCommitmentTx(params *CommitmentTxParams) (*wire.MsgTx,
 		txIn.Sequence = SequenceCommitmentTx
 		tx.AddTxIn(txIn)
 	}
+
+	// Sort inputs for deterministic ordering
+	sortTxInputs(tx)
 
 	// Build Batch output (Output 1)
 	// Path 1: Sweep - operator can claim after batch expiry
@@ -105,7 +112,7 @@ func (tb *TxBuilder) BuildCommitmentTx(params *CommitmentTxParams) (*wire.MsgTx,
 	}
 
 	// Add connector output (must be second)
-	tx.AddTxOut(wire.NewTxOut(params.ConnectorAmount, connectorTaprootScript))
+	tx.AddTxOut(wire.NewTxOut(connectorAmount, connectorTaprootScript))
 
 	// Verify we have enough inputs to cover outputs + fees
 	totalInput := int64(0)
@@ -116,7 +123,7 @@ func (tb *TxBuilder) BuildCommitmentTx(params *CommitmentTxParams) (*wire.MsgTx,
 		totalInput += utxo.Amount
 	}
 
-	totalOutput := params.BatchAmount + params.ConnectorAmount
+	totalOutput := params.BatchAmount + connectorAmount
 	estimatedSize := estimateTxSize(tx, len(tx.TxIn), 0)
 	fee := estimatedSize * params.FeeRate
 
@@ -128,4 +135,21 @@ func (tb *TxBuilder) BuildCommitmentTx(params *CommitmentTxParams) (*wire.MsgTx,
 	// No sorting needed to maintain deterministic order
 
 	return tx, nil
+}
+
+// sortTxInputs sorts transaction inputs deterministically
+// Sorts by txid (hash) first, then by output index
+func sortTxInputs(tx *wire.MsgTx) {
+	sort.Slice(tx.TxIn, func(i, j int) bool {
+		// Compare transaction hashes
+		cmp := bytes.Compare(
+			tx.TxIn[i].PreviousOutPoint.Hash[:],
+			tx.TxIn[j].PreviousOutPoint.Hash[:],
+		)
+		if cmp != 0 {
+			return cmp < 0
+		}
+		// If hashes are equal, compare output indices
+		return tx.TxIn[i].PreviousOutPoint.Index < tx.TxIn[j].PreviousOutPoint.Index
+	})
 }

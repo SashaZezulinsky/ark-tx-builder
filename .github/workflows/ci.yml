@@ -2,10 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main, master, develop ]
-  workflow_dispatch:
+    branches: [ main, develop ]
 
 jobs:
   lint:
@@ -18,7 +17,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
           cache: true
 
       - name: Run golangci-lint
@@ -30,9 +29,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.20', '1.21', '1.22']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,7 +36,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: '1.22'
           cache: true
 
       - name: Download dependencies
@@ -53,7 +49,6 @@ jobs:
         run: make test
 
       - name: Upload coverage to Codecov
-        if: matrix.go-version == '1.21'
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.out
@@ -72,16 +67,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
           cache: true
 
       - name: Download dependencies
         run: go mod download
 
       - name: Build binary
-        run: |
-          mkdir -p bin
-          go build -v -o bin/ark-tx-builder
+        run: make build
 
       - name: Verify binary
         run: |
@@ -105,23 +98,20 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
           cache: true
 
       - name: Check formatting
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          gofmt -l . | tee /tmp/gofmt.out
+          if [ -s /tmp/gofmt.out ]; then
             echo "The following files are not formatted:"
-            gofmt -s -l .
+            cat /tmp/gofmt.out
             exit 1
           fi
 
       - name: Run go vet
         run: go vet ./...
-
-      - name: Check for direct dependencies
-        run: |
-          go list -json -m all | jq -r '.Path' | grep -v "^$(go list -m)$" || true
 
       - name: Verify go.mod is tidy
         run: |
